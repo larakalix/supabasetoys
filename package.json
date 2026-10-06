@@ -1,0 +1,18 @@
+{
+  "name": "supabase-toys-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "dev": "pnpm --dir apps/desktop dev",
+    "desktop": "node scripts/go.mjs tool wails dev -tags desktop",
+    "build": "pnpm --dir apps/desktop build",
+    "test": "pnpm --dir apps/desktop test",
+    "typecheck": "pnpm --dir apps/desktop typecheck",
+    "desktop:build": "node scripts/go.mjs tool wails build -tags desktop -m -nosyncgomod",
+    "cli:build": "node scripts/go.mjs build -trimpath -o build/bin/supabase-toys ./cmd/supabase-toys",
+    "go:test": "node scripts/go.mjs test -race ./...",
+    "graph:update": "graphify update . --no-cluster",
+    "graph:report": "graphify cluster-only . --no-label"
+  }
+}

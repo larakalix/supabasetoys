@@ -1,0 +1,18 @@
+{
+ "$schema": "https://wails.io/schemas/config.v2.json",
+ "name": "Supabase Toys",
+ "outputfilename": "supabase-toys-desktop",
+ "frontend:dir": "apps/desktop",
+ "frontend:install": "pnpm install --frozen-lockfile",
+ "frontend:build": "pnpm build",
+ "frontend:dev:watcher": "pnpm dev",
+ "frontend:dev:serverUrl": "http://127.0.0.1:1420",
+ "wailsjsdir": "./apps/desktop",
+ "info": {
+  "companyName": "Supabase Toys contributors",
+  "productName": "Supabase Toys",
+  "productVersion": "0.1.0",
+  "copyright": "MIT · Supabase Toys contributors",
+  "comments": "Local Supabase development without project conflicts"
+ }
+}

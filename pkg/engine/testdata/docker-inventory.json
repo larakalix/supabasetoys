@@ -1,0 +1,6 @@
+[
+  {"Id":"standard-container","Name":"/supabase_db_project-a","Config":{"Labels":{"com.supabase.cli.project":"project-a","com.supabase.cli.workdir":"/tmp/project-a"}},"State":{"Status":"running","Health":{"Status":"healthy"}},"HostConfig":{"PortBindings":{"5432/tcp":[{"HostIp":"0.0.0.0","HostPort":"55322"},{"HostIp":"::","HostPort":"55322"}]}}},
+  {"Id":"stack-container","Name":"/stack-service-database","Config":{"Labels":{"com.supabase.stack":"aabbccddeeff00112233","com.supabase.instance":"instance-id","com.supabase.service":"database","com.supabase.stack-root":"/tmp/cli-home/stacks/aabbccddeeff00112233"}},"State":{"Status":"running"},"HostConfig":{"PortBindings":{}}},
+  {"Id":"one-off","Name":"/stack-oneoff","Config":{"Labels":{"com.supabase.stack":"aabbccddeeff00112233","com.docker.compose.oneoff":"True"}},"State":{"Status":"running"},"HostConfig":{"PortBindings":{}}},
+  {"Id":"foreign-container","Name":"/other-postgres","Config":{"Labels":{}},"State":{"Status":"running"},"HostConfig":{"PortBindings":{"5432/tcp":[{"HostPort":"55400"}]}}}
+]

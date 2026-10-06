@@ -1,0 +1,17 @@
+/target/
+node_modules/
+dist/
+.tools/
+release-assets/
+/artifacts/
+*.log
+.DS_Store
+__pycache__/
+
+/build/bin/
+/apps/desktop/wailsjs/
+/desktop-tools/
+
+/graphify-out/
+/.codex/hooks.json
+/.codex/hooks.json.bak*
