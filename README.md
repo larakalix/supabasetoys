@@ -2,7 +2,7 @@
 
 Run several local Supabase projects. Catch conflicts before starting. Understand failures without disrupting another project.
 
-A free, MIT-licensed Go/Wails desktop app and standalone Go CLI. All project management happens on your machine. No account, hosted backend, telemetry, or automatic updates.
+A free, MIT-licensed Go/Wails desktop app and standalone Go CLI. All project management happens on your machine. No Toys account, hosted backend, telemetry, or automatic updates. Optional Supabase account profiles connect directly to the Management API for read-only cloud inventory.
 
 ![Supabase Toys interface preview](docs/welcome-preview.png)
 
@@ -125,3 +125,36 @@ After changing ports, review connection settings and preview any app environment
 Graphify is an optional development tool, independent of the shipped desktop and CLI. Install the tested `graphifyy==0.9.46` with `uv tool install graphifyy==0.9.46`, then run `pnpm graph:update` to create the local AST graph. `pnpm graph:report` creates a report and interactive graph with local clustering and no LLM labeling. Use `graphify affected PlanPortChanges --depth 2` or `graphify query "port editing"` for change-impact navigation. The generated `graphify-out/` directory is ignored.
 
 Codex guidance is in `AGENTS.md`. `graphify codex install` sets up a local hook; the installed version intentionally uses a no-op hook in Codex Desktop, so guidance comes from that file. Graphs aid navigation and do not replace source inspection or tests. The JSON Docker fixture produces no symbols; references to dependencies may point outside this repository.
+
+## Multiple Supabase accounts
+
+Use **Connect account** to add a named profile with a scoped personal access token. Grant **Organizations: Read** and **Organization Projects: Read** for the resources you want to browse. Tokens may show only a subset of your account; profile labels are not verified user identities.
+
+Tokens are saved in macOS Keychain, Windows Credential Manager, or Linux Secret Service. If that store is locked or unavailable, unlock/configure it or explicitly choose **session only**. No plaintext fallback is used. Linux requires a running Secret Service with an unlocked default collection. Session profiles and tokens disappear when Toys closes.
+
+The sidebar groups profiles → organizations → hosted projects → associated local environments. Hosted details show region, reported status, last refresh, and Open Dashboard. Cloud inventory is read-only; start/stop/restart, ports, logs, and resources remain local actions. Refresh is manual; cached readings become stale after five minutes or immediately after a failed refresh. Failed access retains the last successful inventory with an actionable access state.
+
+From either a hosted project or local environment, choose **Associate** and confirm the target. Existing `supabase/.temp/project-ref` links can suggest exact matches, but suggestions never apply automatically. Associations are stored by hosted reference, so shared projects appear consistently under multiple profiles. Association does not run `supabase link`, edit config/env files, or copy database data. Inaccessible associations remain available in the ungrouped local list.
+
+```sh
+supabase-toys account add Personal
+# Enter a scoped token at the hidden interactive prompt, not in command arguments.
+supabase-toys account list --json
+supabase-toys cloud list --account Personal --refresh --json
+supabase-toys project associate LOCAL --account Personal --cloud-ref PROJECT_REF
+supabase-toys project association-suggestions LOCAL
+supabase-toys project unassociate LOCAL
+supabase-toys account remove Personal
+```
+
+The CLI requires a terminal for token entry; piped input and token flags are not supported. `account add --session-only` validates and displays inventory for that invocation only; use desktop session profiles for ongoing session-only work. Saved profiles and associations are shared across desktop and CLI without changing Supabase CLI login.
+
+Disconnect removes the local credential and cache, preserving local registrations and associations. Revoke unused tokens separately in [Supabase account settings](https://supabase.com/dashboard/account/tokens). Inventory output never includes project API keys or database passwords. JSON consumers should inspect `stale`, `access_state`, and `message` after refresh: API failures return cached data rather than an empty successful inventory.
+
+Credential-store integration tests use synthetic temporary values only:
+
+```sh
+TOYS_KEYRING_TEST=1 go test -tags credentialintegration ./pkg/engine -run TestSystemCredentialStoreRoundTrip
+```
+
+On Windows set `TOYS_KEYRING_TEST=1` in the environment before running the same Go test. Linux requires an unlocked Secret Service; CI provisions an isolated D-Bus session.

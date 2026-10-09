@@ -62,7 +62,7 @@ func (s *Store) Lock() (*flock.Flock, error) {
 	return lock, nil
 }
 func (s *Store) Read() (Registry, error) {
-	registry := Registry{Projects: []Project{}, Settings: Settings{SupabaseCLI: "supabase", DockerCLI: "docker"}}
+	registry := Registry{Accounts: []AccountProfile{}, Associations: []LocalProjectAssociation{}, Projects: []Project{}, Settings: Settings{SupabaseCLI: "supabase", DockerCLI: "docker"}}
 	data, err := os.ReadFile(filepath.Join(s.Root, "registry.json"))
 	if errors.Is(err, os.ErrNotExist) {
 		return registry, nil
@@ -72,6 +72,12 @@ func (s *Store) Read() (Registry, error) {
 	}
 	if err := json.Unmarshal(data, &registry); err != nil {
 		return registry, fmt.Errorf("invalid registry; preserve it and restore a backup: %w", err)
+	}
+	if registry.Accounts == nil {
+		registry.Accounts = []AccountProfile{}
+	}
+	if registry.Associations == nil {
+		registry.Associations = []LocalProjectAssociation{}
 	}
 	if registry.Projects == nil {
 		registry.Projects = []Project{}

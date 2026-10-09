@@ -8,6 +8,11 @@ import (
 
 // Request is the shared JSON contract exposed by the desktop bridge and fixtures.
 type Request struct {
+	Account     string            `json:"account"`
+	Token       string            `json:"token"`
+	CloudRef    string            `json:"cloud_ref"`
+	Refresh     bool              `json:"refresh"`
+	SessionOnly bool              `json:"session_only"`
 	Ports       map[string]uint16 `json:"ports"`
 	Action      string            `json:"action"`
 	Project     string            `json:"project"`
@@ -30,13 +35,27 @@ type Request struct {
 
 func (request Request) Mutating() bool {
 	switch request.Action {
-	case "identity_apply", "lifecycle", "repair_apply", "env_apply", "configure", "add", "remove":
+	case "account_add", "account_remove", "associate", "unassociate", "identity_apply", "lifecycle", "repair_apply", "env_apply", "configure", "add", "remove":
 		return true
 	}
 	return false
 }
 func (e *Engine) Handle(ctx context.Context, request Request, progress func(OperationProgress)) (any, error) {
 	switch request.Action {
+	case "accounts":
+		return e.Accounts()
+	case "account_add":
+		return e.AddAccount(ctx, request.Name, request.Token, request.SessionOnly)
+	case "account_remove":
+		return map[string]bool{"ok": true}, e.RemoveAccount(request.Account)
+	case "cloud_list":
+		return e.CloudList(ctx, request.Account, request.Refresh)
+	case "associate":
+		return e.Associate(ctx, request.Project, request.Account, request.CloudRef)
+	case "unassociate":
+		return map[string]bool{"ok": true}, e.Unassociate(request.Project)
+	case "association_suggestions":
+		return e.AssociationSuggestions(request.Project)
 	case "registry":
 		return e.Registry()
 	case "inventory":

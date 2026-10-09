@@ -46,6 +46,18 @@ func (a *App) Request(request engine.Request) (any, error) {
 	if request.Mutating() {
 		defer func() { a.mu.Lock(); a.cancel(); a.cancel = nil; a.mu.Unlock() }()
 	}
+	if request.Action == "open_token_settings" {
+		runtime.BrowserOpenURL(ctx, "https://supabase.com/dashboard/account/tokens")
+		return map[string]bool{"ok": true}, nil
+	}
+	if request.Action == "open_dashboard" {
+		url, err := a.engine.DashboardURL(ctx, request.Account, request.CloudRef)
+		if err != nil {
+			return nil, err
+		}
+		runtime.BrowserOpenURL(ctx, url)
+		return map[string]bool{"ok": true}, nil
+	}
 	if request.Action == "open_endpoint" {
 		status, err := a.engine.Status(ctx, request.Project, false)
 		if err != nil {

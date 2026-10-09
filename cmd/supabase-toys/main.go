@@ -101,7 +101,8 @@ func newCommand() *cobra.Command {
 		}
 		return e.ApplyIdentity(ctx, preview)
 	})})
-	root.AddCommand(project)
+	project.AddCommand(associationCommands(run)...)
+	root.AddCommand(project, accountCommand(run), cloudCommand(run))
 	var supabaseCLI, dockerCLI, dockerEndpoint string
 	settings := &cobra.Command{Use: "settings", Args: cobra.NoArgs, RunE: run(func(_ context.Context, e *engine.Engine, _ []string) (any, error) {
 		registry, err := e.Registry()

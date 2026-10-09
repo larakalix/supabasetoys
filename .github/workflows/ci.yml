@@ -32,6 +32,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: go mod verify
       - run: go test -race ./...
+      - if: runner.os != 'Linux'
+        name: Native credential store
+        env:
+          TOYS_KEYRING_TEST: '1'
+        run: go test -tags credentialintegration ./pkg/engine -run TestSystemCredentialStoreRoundTrip
+      - if: runner.os == 'Linux'
+        name: Linux Secret Service
+        shell: bash
+        run: |
+          sudo apt-get install -y dbus-x11 gnome-keyring
+          dbus-run-session -- bash -c 'printf "toys-ci-password" | gnome-keyring-daemon --unlock --components=secrets; TOYS_KEYRING_TEST=1 go test -tags credentialintegration ./pkg/engine -run TestSystemCredentialStoreRoundTrip'
       - run: go vet ./...
       - name: Go formatting
         shell: bash

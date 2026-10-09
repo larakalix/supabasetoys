@@ -60,3 +60,11 @@ Graphify 0.9.46 generated the local graph, report, and interactive HTML, with lo
 The extended live A/B acceptance passed on Supabase CLI 2.119.0 and 2.118.0: explicit API-port changes on B, correct new runtime endpoint, stable A endpoint and availability, persistent database markers, and persistence of the changed allocation after another stop/start.
 
 A regression test also verifies that an external configuration edit made during the final runtime inventory check is preserved and rejects the apply. Both live test runs cleaned up with targeted stops, preserving their data.
+
+## Account profiles and cloud inventory (2026-10-05)
+
+Account tests exercise separate credentials/inventories, shared hosted references, legacy registry loading, session-only profiles, credential-store failures, permissions/expiry/rate limits/offline state, pagination and malformed responses, explicit association suggestions, disconnect preservation, and shared mutation locks. API fixtures accept GET inventory requests only and verify that response bodies and metadata cannot echo tokens into saved inventory or errors. No real Supabase cloud account was used.
+
+The desktop suite now contains 19 passing workflow tests, including 9 account workflows. Browser interaction checks with an isolated fixture verified cloud/local labeling, explicit association, a shared local environment under two profiles, masked session-only connection, and disconnect preservation. These checks do not prove live cloud API access or native Windows/Linux UI behavior.
+
+The actual macOS Keychain passed the opt-in synthetic credential set/get/delete test. A macOS desktop application packaged successfully, and standalone CLI binaries compiled for macOS, Windows x64, and Linux x64. Native Windows Credential Manager and Linux Secret Service tests are configured in the CI platform matrix but have not been run from this macOS workspace.

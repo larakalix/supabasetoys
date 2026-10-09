@@ -11,12 +11,17 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Engine struct {
-	Store  *Store
-	Runner Runner
+	Store       *Store
+	Runner      Runner
+	credentials CredentialStore
+	cloud       CloudReader
+	accountMu   sync.Mutex
+	sessions    map[string]sessionAccount
 }
 
 func New(root string) (*Engine, error) { return WithRunner(root, SystemRunner{}) }
@@ -28,7 +33,7 @@ func WithRunner(root string, runner Runner) (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{Store: store, Runner: runner}, nil
+	return &Engine{Store: store, Runner: runner, credentials: SystemCredentials{}, cloud: NewManagementClient(), sessions: map[string]sessionAccount{}}, nil
 }
 func (e *Engine) mutate(work func() error) (err error) {
 	lock, err := e.Store.Lock()
@@ -38,7 +43,18 @@ func (e *Engine) mutate(work func() error) (err error) {
 	defer func() { err = errors.Join(err, lock.Unlock()) }()
 	return work()
 }
-func (e *Engine) Registry() (Registry, error) { return e.Store.Read() }
+func (e *Engine) Registry() (Registry, error) {
+	e.accountMu.Lock()
+	defer e.accountMu.Unlock()
+	registry, err := e.Store.Read()
+	for _, session := range e.sessions {
+		registry.Accounts = append(registry.Accounts, session.Profile)
+	}
+	for i := range registry.Accounts {
+		registry.Accounts[i].Inventory = ageInventory(registry.Accounts[i].Inventory)
+	}
+	return registry, err
+}
 func (e *Engine) Configure(settings Settings) error {
 	return e.mutate(func() error {
 		if settings.DockerEndpoint != nil {
@@ -135,6 +151,15 @@ func find(registry Registry, id string) (Project, error) {
 	return matches[0], nil
 }
 func (e *Engine) Remove(id string) error {
+	return e.mutateRegisteredProject(id, func(registry *Registry, project Project) {
+		registry.Projects = slices.DeleteFunc(registry.Projects, func(p Project) bool { return p.ID == project.ID })
+		registry.Associations = slices.DeleteFunc(registry.Associations, func(a LocalProjectAssociation) bool { return a.LocalProjectID == project.ID })
+	})
+}
+
+// mutateRegisteredProject resolves the selected project under the shared lock
+// before updating registry metadata. It performs no runtime or config operations.
+func (e *Engine) mutateRegisteredProject(id string, update func(*Registry, Project)) error {
 	return e.mutate(func() error {
 		registry, err := e.Store.Read()
 		if err != nil {
@@ -144,7 +169,7 @@ func (e *Engine) Remove(id string) error {
 		if err != nil {
 			return err
 		}
-		registry.Projects = slices.DeleteFunc(registry.Projects, func(p Project) bool { return p.ID == project.ID })
+		update(&registry, project)
 		return e.Store.Write(registry)
 	})
 }

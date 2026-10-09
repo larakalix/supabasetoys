@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { request, isDesktop, cancelOperation, saveDiagnosticsPath } from './api'
 import { useWorkspace } from './useWorkspace'
-import type { Project, RepairPreview, Status } from './types'
+import type { Project, RepairPreview, Status, CloudSelection } from './types'
 import Icon from './components/Icon.vue'
 import Modal from './components/Modal.vue'
 import ProjectOverview from './components/ProjectOverview.vue'
@@ -12,8 +12,18 @@ import SettingsDialog from './components/SettingsDialog.vue'
 import ConnectionDialog from './components/ConnectionDialog.vue'
 import IdentityDialog from './components/IdentityDialog.vue'
 import PortsDialog from './components/PortsDialog.vue'
+import AccountSidebar from './components/AccountSidebar.vue'
+import CloudProjectPanel from './components/CloudProjectPanel.vue'
+import AssociationDialog from './components/AssociationDialog.vue'
 
 const { registry, selectedId, selected, status, inventory, busy, refreshing, error, notice, progress, guarded, refresh, select, lifecycle } = useWorkspace()
+const cloudSelection = ref<CloudSelection | null>(null)
+const cloudPanel = ref<{ refresh: () => Promise<void>; busy: boolean } | null>(null)
+async function refreshTarget() { if (cloudSelection.value) await cloudPanel.value?.refresh(); else await refresh() }
+const associationDialog = ref(false)
+async function selectLocal(project: Project) { cloudSelection.value = null; await select(project) }
+async function accountsChanged() { await refresh(); if (cloudSelection.value) { const account = registry.value.accounts?.find(a => a.id === cloudSelection.value!.account.id); cloudSelection.value = account ? { account, project: cloudSelection.value.project } : null } }
+async function unassociate() { await guarded(() => request('unassociate', { project: selectedId.value })); await refresh() }
 const tab = ref<'overview' | 'logs' | 'diagnostics'>('overview')
 const addDialog = ref(false), settingsDialog = ref(false), connectionsDialog = ref(false), removeDialog = ref(false)
 const identityDialog = ref(false)
@@ -46,31 +56,33 @@ async function remove() {
   <div class="app-shell">
     <aside class="sidebar">
       <a class="brand" href="#" @click.prevent><span class="brand-icon"><Icon name="box" /></span><span>supabase<span class="brand-suffix">toys</span></span><span class="version">0.1</span></a>
-      <div class="sidebar-title"><span>YOUR PROJECTS</span><span>{{ registry.projects.length }}</span></div>
-      <nav aria-label="Projects"><button v-for="project in registry.projects" :key="project.id" :class="['project-link', { active: selectedId === project.id }]" :disabled="busy" @click="select(project)"><Icon name="box" /><span>{{ project.name }}<small>{{ project.project_id }}</small></span><span v-if="selectedId === project.id" class="dot" :class="status?.state ?? 'stopped'" /></button></nav>
+      <AccountSidebar :registry :selected-id="cloudSelection ? '' : selectedId" :busy :desktop :inventory :status @select="selectLocal" @cloud="cloudSelection = $event" @changed="accountsChanged" />
       <button class="add-project" :disabled="busy || !desktop" @click="addDialog = true"><Icon name="plus" /> Add project</button>
       <div v-if="unregistered.length" class="discovered"><span class="eyebrow">ALSO ON THIS MACHINE</span><p v-for="id in unregistered" :key="id">{{ id }}</p><small>Add its folder to manage it.</small></div>
       <div class="sidebar-bottom"><div class="local-status"><span class="dot" :class="inventory?.available ? 'running' : 'stopped'" />{{ inventory?.available ? 'Docker connected' : desktop ? 'Docker unavailable' : 'Interface preview' }}</div><button class="subtle" :disabled="busy || !desktop" @click="settingsDialog = true"><Icon name="settings" /> Local setup</button><small>Free & open source · MIT</small></div>
     </aside>
     <main>
-      <div class="topbar"><span><Icon name="box" /> Local development <span class="slash">/</span> <strong>{{ selected?.name ?? 'Welcome' }}</strong></span><span class="topbar-right"><span class="local-badge">LOCAL ONLY</span><button class="icon-button" :disabled="busy || refreshing || !desktop" aria-label="Refresh project status" @click="refresh"><Icon name="refresh" /></button></span></div>
+      <div class="topbar"><span><Icon name="box" /> {{ cloudSelection ? 'Cloud inventory' : 'Local development' }} <span class="slash">/</span> <strong>{{ cloudSelection?.project.name ?? selected?.name ?? 'Welcome' }}</strong></span><span class="topbar-right"><span class="local-badge">{{ cloudSelection ? 'CLOUD · READ ONLY' : 'LOCAL ENVIRONMENT' }}</span><button class="icon-button" :disabled="busy || refreshing || cloudPanel?.busy || !desktop" :aria-label="cloudSelection ? 'Refresh hosted inventory' : 'Refresh project status'" @click="refreshTarget"><Icon name="refresh" /></button></span></div>
       <div class="main-content">
         <div v-if="!desktop" class="preview-banner">Interface preview. Launch <code>pnpm desktop</code> to manage your local Supabase projects.</div>
         <div v-if="error" role="alert" class="alert error"><strong>Action needs attention</strong><p>{{ error }}</p><button class="subtle" @click="error = ''">Dismiss</button></div>
         <div v-if="notice" role="status" class="alert success">{{ notice }}</div>
         <div v-if="busy" role="status" class="operation"><span class="spinner" />{{ progress || 'Working…' }}<button :disabled="!progress" @click="cancelOperation">Cancel operation</button></div>
-        <template v-if="selected">
+        <CloudProjectPanel ref="cloudPanel" v-if="cloudSelection" :selection="cloudSelection" :registry @changed="accountsChanged" @select="selectLocal" />
+        <template v-else-if="selected">
           <header class="page-header"><div><p class="eyebrow">PROJECT WORKSPACE</p><h1>{{ selected.name }}</h1><p class="project-path">{{ selected.path }}</p></div><div class="page-actions"><button :disabled="busy || !status || status.state === 'unavailable'" @click="lifecycle('restart')"><Icon name="refresh" /> Restart</button><button v-if="status?.services.some(s => s.state === 'running')" :disabled="busy" @click="lifecycle('stop')"><Icon name="stop" /> Stop</button><button v-else class="primary" :disabled="busy || !status || status.state === 'unavailable'" @click="lifecycle('start')"><Icon name="play" /> Start project</button></div></header>
           <nav class="tabs" aria-label="Project views"><button v-for="item in (['overview','logs','diagnostics'] as const)" :key="item" :aria-current="tab === item ? 'page' : undefined" :class="{ active: tab === item }" @click="tab = item">{{ item }}</button><span>{{ selected.adapter.kind === 'stack' ? 'Experimental stack' : 'Standard CLI' }}</span></nav>
           <div v-if="!status" class="inline-empty">Reading project status…</div>
           <ProjectOverview v-else-if="tab === 'overview'" :status :busy @ports="portsDialog = true" @repair="previewRepair" @connections="connectionsDialog = true" @open="openEndpoint" />
           <LogsPanel v-else-if="tab === 'logs'" :key="selectedId" :project="selectedId" :services="status?.services ?? []" :busy />
           <section v-else class="panel"><div class="section-heading"><div><h2>Diagnostics</h2><p>Inspect setup issues and export a redacted report for a GitHub issue.</p></div><button :disabled="busy" @click="previewRepair">Preview port repair</button></div><button v-if="selected.adapter.kind === 'standard'" :disabled="busy" @click="identityDialog = true">Review unused-project identity</button><label class="check"><input v-model="includeLogs" type="checkbox"> Include recent redacted logs</label><div class="toolbar"><button :disabled="busy" @click="generateReport">Generate report</button><button :disabled="busy" @click="exportReport">Export JSON</button></div><pre v-if="report" class="log-output" tabindex="0" aria-label="Diagnostic report">{{ report }}</pre><p v-else class="inline-empty">Reports include CLI version, service health, port conflicts, and resource readings. Review any included log text before sharing.</p></section>
+          <div class="toolbar"><button :disabled="busy || !registry.accounts?.length" @click="associationDialog = true">Associate hosted project</button><button v-if="registry.associations?.some(a => a.local_project_id === selectedId)" :disabled="busy" @click="unassociate">Remove cloud association</button></div>
           <footer class="project-footer"><span>{{ status?.supabase_version ? `Supabase CLI ${status.supabase_version}` : 'Supabase CLI not detected' }}</span><button class="subtle" :disabled="busy" @click="removeDialog = true">Remove registration</button></footer>
         </template>
         <section v-else class="welcome"><span class="welcome-icon"><Icon name="box" /></span><p class="eyebrow">A LITTLE ORDER FOR YOUR LOCAL STACKS</p><h1>More projects.<br>Fewer surprises.</h1><p>Give every Supabase project its own space.<br>See what’s running, catch conflicts, and get back to building.</p><button class="primary" :disabled="!desktop || busy" @click="addDialog = true"><Icon name="plus" /> Add your first project</button><div class="welcome-steps"><div><span>01</span><strong>Add a folder</strong><p>Your existing Supabase setup stays yours.</p></div><div><span>02</span><strong>Check your setup</strong><p>Catch port and identity conflicts before starting.</p></div><div><span>03</span><strong>Start building</strong><p>Open Studio and connect your app.</p></div></div></section>
       </div>
     </main>
+    <AssociationDialog v-if="associationDialog && selected" :registry :local="selectedId" @close="associationDialog = false" @saved="refresh" />
     <AddProjectDialog v-if="addDialog" @close="addDialog = false" @added="added" />
     <SettingsDialog v-if="settingsDialog" :settings="registry.settings" @close="settingsDialog = false" @saved="refresh" />
     <ConnectionDialog v-if="connectionsDialog && selected" :project="selectedId" @close="connectionsDialog = false" @saved="refresh" />

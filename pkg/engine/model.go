@@ -18,8 +18,10 @@ type Settings struct {
 	DockerEndpoint *string `json:"docker_endpoint"`
 }
 type Registry struct {
-	Projects []Project `json:"projects"`
-	Settings Settings  `json:"settings"`
+	Projects     []Project                 `json:"projects"`
+	Accounts     []AccountProfile          `json:"accounts"`
+	Associations []LocalProjectAssociation `json:"associations"`
+	Settings     Settings                  `json:"settings"`
 }
 type Service struct {
 	ID        string   `json:"id"`
